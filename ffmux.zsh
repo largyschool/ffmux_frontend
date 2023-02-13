@@ -2,7 +2,9 @@
 #
 # 
 # Script	: ffmux.zsh
+# Version	: v1.0
 # Options	: see help
+# Modified	: 12/2/23
 #
 # DESCRIPTION:
 # Add (mux) an audio file containing one audio stream with another file containing both video, audio and/or subtitles.
@@ -17,7 +19,6 @@
 # 2/1/23	Added "-info" and "-help" options.
 # 20/1/23	Added "-debug" and logs.
 #
-#		Last modified: 19/1/23-16.35
 #
 # 
 # http://youtube.com/greenflarevideos (October 2022) 
@@ -30,24 +31,24 @@ if [[ "$1" == "--help" ]] || [[ "$1" == "-help" ]]; then
 	echo "$progname: --help\n"
 cat <<!!
   $progname [-help]
-  $progname [-info] <source media file>
+  $progname [-info] <source video / media file>
   $progname <source video file> <source audio file> <target media file>
 
   arguments:
-	<source media file>
-		A file containing at least one media stream (video, audio, image etc). The program will provide information
-		on the media stream(s) contained within that file. 
+	<source video / media file>
+		A file containing at least one media stream (video, audio, image etc). The -info option  will provide information
+		on the media stream(s) contained within this file. 
 
 	<source video file>
 		This file MUST contain a valid video stream. The media file can contain any number of additional media
 	 	streams (audio streams, cover art streams, subtitle streams etc). Any video type files can be specified
 		eg. mp4, mkv, mov, avi. The audio stream in <source audio file> will be added (muxed) as the last media
-		stream within this file.
+		stream within the <target media file>.
 
 	<source audio file>
 		This file MUST contain a valid audio stream. The following audio type files can be specified: m4a, mp3
 		and ac3. It is generally accepted that the most suitable audio format for "muxing" is type "(aac) m4a". The
-		first audio stream will always be selected if the audio file contains more than one stream (a cover art
+		first audio stream will always be selected if the audio file contains more than one media stream (a cover art
 		stream, for example).
 
 	<target media file>
