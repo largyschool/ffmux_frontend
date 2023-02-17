@@ -18,6 +18,8 @@
 # 2/10/22	Script start
 # 2/1/23	Added "-info" and "-help" options.
 # 20/1/23	Added "-debug" and logs.
+# 13/2/23	Added new stream type: (video) menu text
+# 14/2/23	Added check to ensure output filetype matches source media filetype.
 #
 #
 # 
@@ -148,16 +150,33 @@ if [[ "$video_stream_exists" == "" ]]; then
 	echo "ERROR: Video file ($f) contains no video, aborting ..."
 	exit 0
 else
-	# Start the "Last execution" log.
-	if [ -f $DEBUG_DIR/ffmux.debug ]; then
-		now=$(date)
-		echo "\nLast ffmpeg execution ($now): " > $TMPDIR/ffmux_debug$$
-	fi
+	# Check that the filetypes (mp4, mkv etc) match for the source and target media files.
+	#
+	# find the file extension of the source media file.
+	source_filename=$(basename "$f")
+	source_media_file_ext="${source_filename##*.}"
 
-	echo "\nFile ($f) info:" >> $TMPDIR/ffmux_debug$$
-	f_stream_info=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #/ { print $0 }')
-	echo "$f_stream_info" >> $TMPDIR/ffmux_debug$$
-	echo "\n" >> $TMPDIR/ffmux_debug$$
+	# find the file extension of the target media file.
+	target_filename=$(basename "$nvtitle")
+	target_media_file_ext="${target_filename##*.}"
+
+	if [[ "$source_media_file_ext" == "$target_media_file_ext" ]]; then
+
+		# Start the "Last execution" log.
+		if [ -f $DEBUG_DIR/ffmux.debug ]; then
+			now=$(date)
+			echo "\nLast ffmpeg execution ($now): " > $TMPDIR/ffmux_debug$$
+		fi
+
+		echo "\nFile ($f) info:" >> $TMPDIR/ffmux_debug$$
+		f_stream_info=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #/ { print $0 }')
+		echo "$f_stream_info" >> $TMPDIR/ffmux_debug$$
+		echo "\n" >> $TMPDIR/ffmux_debug$$
+
+	else
+		echo "ERROR: the filetypes ($source_media_file_ext) for \"$f\" and \"$nvtitle\" do not match, aborting ..."
+		exit 0
+	fi
 fi
 
 # Check for valid audio file
@@ -176,6 +195,7 @@ fi
 # Check the second file for streams. If it contains more than one stream, choose the first audio stream.
 # Note that the second file may contain an audio stream and a cover art stream - this cover art stream
 # does not appear on some applications eg. the "mediainfo" application.
+f2_more_than_one_stream=0;
 number_file2_streams=$(ffmpeg -i "$f2" 2>&1 | awk '/Stream\ #/ { count++; } END { print count }')
 number_file2_streams=$(( $number_file2_streams + 0 ))	# force conversion to integer
 if (($number_file2_streams != 1)); then
@@ -200,6 +220,11 @@ if (($number_file2_streams != 1)); then
 			echo "\nContinuing Muxing ...\n"
 		fi
 	fi
+else
+	# There is only one stream in the second file. Set the map string accordingly.
+	new_map_number="0"
+	new_audio_map_string="-map 1:${new_map_number}"
+
 fi
 
 # If the script has progressed this far and the following conditional is true, then the audio file has (more than likely) one
@@ -243,12 +268,18 @@ if (($number_video_streams != 1)); then
 	fi
 fi
 
-# In the first file ($f), we determine the number of audio streams, the number of subtitle streams and then
-# add 1 for the video stream which gives us the total number of streams in the first file.
+# In the first file ($f), we determine the differing media stream contained in the file:
+#
+# the number of audio streams
+# the number of subtitle streams
+# the number of (video) menu text streams
+#
+# We then add 1 for the video stream which gives us the total number of streams in the first file.
 number_audio_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Audio/ { count++; } END { print count }')
 
 number_subtitle_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Subtitle/ { count++; } END { print count }')
-number_va_streams=$(( $number_audio_streams + $number_subtitle_streams + 1 ))
+number_text_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Data: bin_data/ { count++; } END { print count }')
+number_va_streams=$(( $number_audio_streams + $number_text_streams + $number_subtitle_streams + 1 ))
 
 # The number of "map commands" in each option below is determined by the total streams contained in $f (file one).
 # For example, if there are three media streams in $f (file one), there will be three map commands. Note: if there
@@ -311,9 +342,10 @@ echo "Preparing to mux media files ..."
 eval "$ffcmd"
 if (( ? )) then
 	# execution failed
-	echo "Problems encountered, check/debug & retry."
+	echo "\n ** Problems encountered, check/debug & retry **"
 	echo "\n** Problems encountered during ffmpeg !\n" >> $TMPDIR/ffmux_debug$$
 	cp $TMPDIR/ffmux_debug$$ $DEBUG_DIR/ffmux.debug
+	rm -f "$nvtitle" 2>/dev/null
 	exit 1
 else
 	# execution succeeded
