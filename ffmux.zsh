@@ -2,7 +2,7 @@
 #
 # 
 # Script	: ffmux.zsh
-# Version	: v1.0
+# Version	: v1.1.0
 # Options	: see help
 # Modified	: 12/2/23
 #
@@ -20,8 +20,10 @@
 # 20/1/23	Added "-debug" and logs.
 # 13/2/23	Added new stream type: (video) menu text
 # 14/2/23	Added check to ensure output filetype matches source media filetype.
-#
-#
+# 18/2/23	Modified order in help screen.
+# 24/3/23	Corrected some code comments and added the paragraph starting "If you
+# 		encounter problems...." to the help section.
+# 23/4/23	Added the "-error" option.
 # 
 # http://youtube.com/greenflarevideos (October 2022) 
 # 
@@ -29,23 +31,33 @@ progname=$(basename $0)
 DEBUG_DIR="$HOME"
 
 
+# ---- Start user input checks ---
+#
+# The first two checks are for the -help and the -error options. If either of these options are
+# selected, an information screen is displayed.
+
 if [[ "$1" == "--help" ]] || [[ "$1" == "-help" ]]; then
 	echo "$progname: --help\n"
 cat <<!!
+  Name: ffmux.zsh - Mux media files.
+
+  Usage:
+  $progname <source media file> <source audio file> <target media file>
+  $progname [-info] <source media file>
   $progname [-help]
-  $progname [-info] <source video / media file>
-  $progname <source video file> <source audio file> <target media file>
+  $progname [-error]
+
+  Description:
+  Combine a media file containing one or more media streams <source media file> with a media file that contains a single audio
+  stream <source audio file> to create a new media file <target media file> that contains streams from both files.
 
   arguments:
-	<source video / media file>
-		A file containing at least one media stream (video, audio, image etc). The -info option  will provide information
-		on the media stream(s) contained within this file. 
 
-	<source video file>
+	<source media file>
 		This file MUST contain a valid video stream. The media file can contain any number of additional media
 	 	streams (audio streams, cover art streams, subtitle streams etc). Any video type files can be specified
-		eg. mp4, mkv, mov, avi. The audio stream in <source audio file> will be added (muxed) as the last media
-		stream within the <target media file>.
+		eg. mp4, mkv, mov, avi. The audio stream contained in <source audio file> will be added (muxed) as the last
+		media stream within the <target media file>.
 
 	<source audio file>
 		This file MUST contain a valid audio stream. The following audio type files can be specified: m4a, mp3
@@ -54,19 +66,27 @@ cat <<!!
 		stream, for example).
 
 	<target media file>
-		The new media file that will contain all media streams from <source video file> and the (single) audio
+		The new media file that will contain all media streams from <source media file> and the (single) audio
 		stream contained in <source audio file>. The file should be of the same video type as <source video file>.
 
+  Other functions: 
 
-	General:
-		If filenames contain spaces, they must be surrounded by double quotes. Special characters such as * and ? etc are not allowed.
-		The program allows for a maximum of 9 media streams in <source media file>.
+	--help
+		Display help
+	--info
+		Display information about media stream(s) within <source media file>
 
-	Other functions: 
-		--debug
-			Display last ffmpeg command (for debug)
-		--help
-			Show help
+	--debug
+		Display last ffmpeg command (for debug)
+	--error
+		Display error correcting routine
+
+  If filenames contain spaces, they must be surrounded by double quotes. Special characters such as * and ? etc are not allowed.
+  The program allows for a maximum of 9 media streams in <source media file>.
+
+  If you encounter problems, you should initially run the "--info" option for both the video (source) file and the audio file
+  (the m4a audio file, that is). You may find that there is an unrecognised stream in one of these files. You can report this
+  stream as an issue, and this will be included in a future release.
 
   Examples:
 	$progname Failsafe.mp4 failsafe_commentary.m4a Failsafe_with_commentary.mp4
@@ -77,13 +97,102 @@ cat <<!!
 		Display media stream information for file "Failsafe_commentary.m4a"
 
 !!
+
+# The double exclamation mark above indicates the end of the information screen.
+	exit 0
+fi
+
+# Display error correcting information screen.
+if [[ "$1" == "--error" ]] || [[ "$1" == "-error" ]]; then
+cat <<!! | more
+
+
+  ffmux.zsh - media stream errors
+
+  Follow these steps when an ffmpeg stream error is reported:
+
+  1. An error is encountered during ffmpeg execution.
+  # ffmux.zsh ""Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" "bhdc.mp4"
+
+  Command output (excerpt) ...
+    Duration: 00:11:23.13, start: 0.000000, bitrate: 129 kb/s
+      Stream #1:0(und): Audio: aac (LC) (mp4a / 0x6134706D), 44100 Hz, stereo, fltp, 127 kb/s (default)
+      Metadata:
+        handler_name    : Stereo
+
+  [mp4 @ 0x7fd4c6036800] track 1: codec frame size is not set
+  [mp4 @ 0x7fd4c6036800] Could not find tag for codec eia_608 in stream #3, codec not currently supported in container
+  Could not write header for output file #0 (incorrect codec parameters ?): Invalid argument
+
+  Stream mapping:
+    Stream #0:0 -> #0:0 (copy)
+    Stream #0:1 -> #0:1 (copy)
+    Stream #0:2 -> #0:2 (copy)
+    Stream #0:3 -> #0:3 (copy)
+    Stream #0:4 -> #0:4 (copy)
+    Stream #1:0 -> #0:5 (copy)
+      Last message repeated 1 times
+
+  ffmux.zsh: ** Problems encountered, check with 'ffmux.zsh -debug' & retry **
+
+
+  2. Run debug command.
+  # ffmux.zsh -debug
+
+  Last ffmux execution (Thu 20 Apr 2023 17:56:22 BST): 
+
+  File (Black_Hawk_Down.mp4) info:
+    Stream #0:0(eng): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 126 kb/s (default)
+    Stream #0:1(eng): Audio: ac3 (ac-3 / 0x332D6361), 48000 Hz, 5.1(side), fltp, 384 kb/s
+    Stream #0:2(eng): Video: h264 (Main) (avc1 / 0x31637661), yuv420p, 1280x532, 4200 kb/s, SAR 1:1 DAR 320:133, 23.98 fps, 23.98 tbr, 24k tbn, 50 tbc (default)
+    Stream #0:3(eng): Subtitle: eia_608 (c608 / 0x38303663), 1280x532, 0 kb/s
+    Stream #0:4: Video: mjpeg (Baseline), yuvj420p(pc, bt470bg/unknown/unknown), 400x600 [SAR 1:1 DAR 2:3], 90k tbr, 90k tbn, 90k tbc (attached pic)
+    Stream #0:5(und): Data: bin_data (text / 0x74786574)
+
+  File (bhd_comm_track.m4a) info:
+    Stream #0:0(und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 196 kb/s (default)
+
+  Command generated for execution:
+  ffmpeg -i "Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" -map 0:0 -map 0:1 -map 0:2 -map 0:3 -map 0:4 -map 1:0 -c copy -disposition:a
+  -default -disposition:a:0 default -disposition:v -default -disposition:v:0 default "bhdc.mp4"
+
+  ** Errors encountered during ffmpeg execution !
+
+  -- End debug --
+
+
+  3. Review ffmpeg error report:
+   track 1: codec frame size is not set
+  [mp4 @ 0x7f7d9501fa00] Could not find tag for codec eia_608 in stream #3, codec not currently supported in container
+  Could not write header for output file #0 (incorrect codec parameters ?): Invalid argument
+  #
+  #
+
+  NOTE: This error (also reported in point 1 above) specifies that ffmpeg could not find the tag for "codec eia_608 in stream #3".
+  "#3" here refers to the name/reference of the stream and not the ordinal stream number. ffmpeg therefore encounters an error in the
+  subtitle stream ie. ie. the line in the info listing above, starting "Stream #0:3(eng)..." of the file #0. "file #0" here does
+  refer to the ordinal file number ie. the first file, the <source media file>.
+
+
+  4.Remove the "problem" stream and re-execute the ffmpeg command:
+  # ffmpeg -i "Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" -map 0:0 -map 0:1 -map 0:2 -map 0:4 -map 0:5 -map 1:0 -c copy -disposition:a
+  -default -disposition:a:0 default -disposition:v -default -disposition:v:0 default "bhdc.mp4"
+
+  ... command execution success
+
+  Note: To address the error in the "problem" stream, we discard use of the "ffmux.zsh" script and execute the generated ffmpeg
+  command displayed in the debug file (excluding the media stream that causes the error).
+
+
+!!
+# the double exclamation mark above indicates the end of the information screen.
 	exit 0
 fi
 
 # Display information from last ffmpeg execution.
 if [[ "$1" == "--debug" ]] || [[ "$1" == "-debug" ]]; then
 	if [ ! -f $DEBUG_DIR/ffmux.debug ]; then
-		echo "Last ffmpeg execution: " > $DEBUG_DIR/ffmux.debug
+		echo "Last ffmux execution: " > $DEBUG_DIR/ffmux.debug
 		echo "Awaiting first ffmpeg execution ...\n" >> $DEBUG_DIR/ffmux.debug
 		cat $DEBUG_DIR/ffmux.debug
 		exit 0
@@ -94,9 +203,14 @@ if [[ "$1" == "--debug" ]] || [[ "$1" == "-debug" ]]; then
 	fi
 fi
 
+# If the "-info" option is selected and no media file is provided, abort the script.
+if [ $# -lt 2 ] && [[ "$1" == "-info" ]];then
+	echo "$progname: ERROR: -info option: please provide a <source media file>"
+	exit 0
+fi
 
 if [ $# -lt 2 ]; then
-	usage_msg+="...<source video file> <source audio file> <target media file> eg. $progname Failsafe.mp4 Failsafe_commentary.m4a Fail_Safe_with_commentary.mp4" 
+	usage_msg+="...<source media file> <source audio file> <target media file> eg. $progname Failsafe.mp4 Failsafe_commentary.m4a Fail_Safe_with_commentary.mp4" 
 	echo "$progname: usage: $usage_msg"
 	echo "help available ($progname --help)."
 	exit 1
@@ -117,7 +231,7 @@ fi
 
 # Check for "f" (first file) existence.
 if [ ! -f "$f" ]; then
-	echo "ERROR: source video file ($f) not found, aborting ..."
+	echo "ERROR: source media file ($f) not found, aborting ..."
 	exit 0
 fi
 
@@ -133,7 +247,7 @@ fi
 # Display file stream information if the "-info" switch has been requested.
 if (($info_requested == 1)); then
 	stream_info=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #/ { print $0 }')
-	echo "Stream information ..."
+	echo "Stream information..."
 	echo $stream_info
 	exit 0
 fi
@@ -144,6 +258,10 @@ if [ ! -f "$f2" ]; then
 	exit 0
 fi
 
+# ---- End user input checks ---
+
+
+# ---- Start file content checks ---
 # If the script has reached this point, the user has requested the "muxing" option. Check for valid video file.
 video_stream_exists=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Video/ { print $0 }')
 if [[ "$video_stream_exists" == "" ]]; then
@@ -282,9 +400,10 @@ number_text_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Data: bin_data
 number_va_streams=$(( $number_audio_streams + $number_text_streams + $number_subtitle_streams + 1 ))
 
 # The number of "map commands" in each option below is determined by the total streams contained in $f (file one).
-# For example, if there are three media streams in $f (file one), there will be three map commands. Note: if there
-# is only one media stream in $f (file one), by definition this MUST be a video stream. It follows that $f (file one)
-# has no audio stream.
+# For example, if there are three media streams in $f (file one), there will be four map commands. Three map commands
+# for the streams in the first file and an extra map command for the audio being added.  Note: if there is only one
+# media stream in $f (file one), by definition this MUST be a video stream. In such a case, it follows that 
+# $f (file one) has no audio stream.
 case $number_va_streams in
 	(1)
 		first_map_string="-map 0:0"
@@ -335,15 +454,15 @@ ffcmd+="-c copy -disposition:a -default -disposition:a:0 default -disposition:v 
 echo "		 --------> $ffcmd"
 
 # Update the log.
-echo "Command executed:" >> $TMPDIR/ffmux_debug$$
+echo "Command generated for execution:" >> $TMPDIR/ffmux_debug$$
 echo "$ffcmd" >> $TMPDIR/ffmux_debug$$
 
 echo "Preparing to mux media files ..."
 eval "$ffcmd"
 if (( ? )) then
 	# execution failed
-	echo "\n ** Problems encountered, check/debug & retry **"
-	echo "\n** Problems encountered during ffmpeg !\n" >> $TMPDIR/ffmux_debug$$
+	echo "\n ${progname}: ** Problems encountered, check with '$progname -debug' & retry **"
+	echo "\n** Errors encountered during ffmpeg execution !\n" >> $TMPDIR/ffmux_debug$$
 	cp $TMPDIR/ffmux_debug$$ $DEBUG_DIR/ffmux.debug
 	rm -f "$nvtitle" 2>/dev/null
 	exit 1
