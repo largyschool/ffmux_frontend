@@ -111,8 +111,8 @@ cat <<!! | more
 
   Follow these steps when an ffmpeg stream error is reported:
 
-  1. An error is encountered during ffmpeg execution.
-  # ffmux.zsh ""Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" "bhdc.mp4"
+  1. An error is encountered during ffmpeg execution. Sample error output:
+  # ffmux.zsh "Black_Hawk_Down.mp4" "bhd_comm_track.m4a" "bhdc.mp4"
 
   Command output (excerpt) ...
     Duration: 00:11:23.13, start: 0.000000, bitrate: 129 kb/s
@@ -152,7 +152,7 @@ cat <<!! | more
   File (bhd_comm_track.m4a) info:
     Stream #0:0(und): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 196 kb/s (default)
 
-  Command generated for execution:
+  Command (raw ffmpeg command) generated for execution:
   ffmpeg -i "Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" -map 0:0 -map 0:1 -map 0:2 -map 0:3 -map 0:4 -map 1:0 -c copy -disposition:a
   -default -disposition:a:0 default -disposition:v -default -disposition:v:0 default "bhdc.mp4"
 
@@ -161,20 +161,20 @@ cat <<!! | more
   -- End debug --
 
 
-  3. Review ffmpeg error report:
+  3. Review ffmpeg error report (see point 1 above). The error is in lines 6 & 7:
    track 1: codec frame size is not set
   [mp4 @ 0x7f7d9501fa00] Could not find tag for codec eia_608 in stream #3, codec not currently supported in container
   Could not write header for output file #0 (incorrect codec parameters ?): Invalid argument
   #
   #
 
-  NOTE: This error (also reported in point 1 above) specifies that ffmpeg could not find the tag for "codec eia_608 in stream #3".
-  "#3" here refers to the name/reference of the stream and not the ordinal stream number. ffmpeg therefore encounters an error in the
-  subtitle stream ie. ie. the line in the info listing above, starting "Stream #0:3(eng)..." of the file #0. "file #0" here does
-  refer to the ordinal file number ie. the first file, the <source media file>.
+  NOTE: This error specifies that ffmpeg could not find the tag for "codec eia_608 in stream #3". "#3" here refers to the 
+  name/reference of the stream and not to the ordinal stream number. ffmpeg therefore encounters an error in the stream that
+  contains the subtitle data ie. the line in the info listing above starting "Stream #0:3(eng)..." of the file #0. "file #0" 
+  here does refer to the ordinal file number ie. the first file, the <source media file>.
 
 
-  4.Remove the "problem" stream and re-execute the ffmpeg command:
+  4.Remove the "problem" stream and re-execute the (raw) ffmpeg command:
   # ffmpeg -i "Black_Hawk_Down.mp4" -i "bhd_comm_track.m4a" -map 0:0 -map 0:1 -map 0:2 -map 0:4 -map 0:5 -map 1:0 -c copy -disposition:a
   -default -disposition:a:0 default -disposition:v -default -disposition:v:0 default "bhdc.mp4"
 
@@ -449,15 +449,31 @@ ffcmd+="$first_map_string "
 ffcmd+="$new_audio_map_string "
 ffcmd+="-c copy -disposition:a -default -disposition:a:0 default -disposition:v -default -disposition:v:0 default \"$nvtitle\""
 
+
+# Update the log.
+echo "Command (raw ffmpeg command) generated for execution:" >> $TMPDIR/ffmux_debug$$
+echo "$ffcmd" >> $TMPDIR/ffmux_debug$$
+
+
+control=0
+while [ $control = 0 ]
+do
+	echo "\nffmpeg command generated...\c"
+	echo "Press <RETURN> to proceed ("Q" to quit):\c"
+	read ans
+	if [[ "$ans" = "q" ]] || [[ "$ans" = "Q"  ]]; then
+		echo "Program aborted."
+		exit 0
+	fi
+	if [[ "$ans" = "" ]]; then
+		control=1
+	fi
+done
+
 # The command that is to be executed is echoed to the standard output - it is prefixed with an arrow to
 # make it more easily locatable after the ffmpeg process has been executed.
 echo "		 --------> $ffcmd"
 
-# Update the log.
-echo "Command generated for execution:" >> $TMPDIR/ffmux_debug$$
-echo "$ffcmd" >> $TMPDIR/ffmux_debug$$
-
-echo "Preparing to mux media files ..."
 eval "$ffcmd"
 if (( ? )) then
 	# execution failed
@@ -473,7 +489,7 @@ else
 	nvtitle_stream_info=$(ffmpeg -i "$nvtitle" 2>&1 | awk '/Stream\ #/ { print $0 }')
 	echo "$nvtitle_stream_info" >> $TMPDIR/ffmux_debug$$
 	echo "\n" >> $TMPDIR/ffmux_debug$$
-	echo "\nMuxing complete - double check integrity with Handbrake (or similar) !!"
+	echo "\nMuxing complete - double check integrity with Handbrake (or similar software) !!"
 	cp $TMPDIR/ffmux_debug$$ $DEBUG_DIR/ffmux.debug
 fi
 
