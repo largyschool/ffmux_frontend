@@ -24,6 +24,7 @@
 # 24/3/23	Corrected some code comments and added the paragraph starting "If you
 # 		encounter problems...." to the help section.
 # 23/4/23	Added the "-error" option.
+# 22/9/23	Processing of subtitles has been disabled.
 # 
 # http://youtube.com/greenflarevideos (October 2022) 
 # 
@@ -395,7 +396,9 @@ fi
 # We then add 1 for the video stream which gives us the total number of streams in the first file.
 number_audio_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Audio/ { count++; } END { print count }')
 
-number_subtitle_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Subtitle/ { count++; } END { print count }')
+# Errors kept appearing for "too many subtitles". Processing of subtitles has been disable therefore.
+# number_subtitle_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Subtitle/ { count++; } END { print count }')
+number_subtitle_streams=0
 number_text_streams=$(ffmpeg -i "$f" 2>&1 | awk '/Stream\ #0/ && /Data: bin_data/ { count++; } END { print count }')
 number_va_streams=$(( $number_audio_streams + $number_text_streams + $number_subtitle_streams + 1 ))
 
